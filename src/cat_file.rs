@@ -2,14 +2,14 @@ use std::{fs, io::Read};
 
 use flate2::read::ZlibDecoder;
 
-pub fn cat_file(args: &[String]){
+pub fn cat_file(args: &[String]) {
     if args[0].as_str() == "-p" {
         let hash = args[1].as_str();
         pretty_print(hash);
     }
 }
 
- fn pretty_print(hash: &str) {
+fn pretty_print(hash: &str) {
     let folder_name = &hash[0..2];
     let file_name = &hash[2..];
     let path = format!(".git/objects/{}/{}", folder_name, file_name);
@@ -19,5 +19,9 @@ pub fn cat_file(args: &[String]){
     object.read_to_end(&mut content).unwrap();
     let mut decoder = ZlibDecoder::new(content.as_slice());
     decoder.read_to_string(&mut extracted_content).unwrap();
-    print!("{extracted_content}");
+    let result = {
+        let r = extracted_content.split("\x00");
+        r.last().unwrap()
+    };
+    println!("{result}");
 }
