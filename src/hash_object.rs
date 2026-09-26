@@ -3,23 +3,25 @@ use flate2::write::ZlibEncoder;
 use hex::ToHex;
 use sha1::{self, Digest};
 use std::{
-    fs::DirBuilder,
-    io::{Write},
+    fs::{DirBuilder},
+    io::Write,
+    path::{Path, PathBuf},
 };
 
 pub fn hash_object(args: &[String]) {
     match args[0].as_str() {
         "-w" => {
             let file_name = &args[1];
-            println!("Attempting to open path: {:?}", file_name);
             let file = std::fs::read(file_name).unwrap();
-            let sha = get_sha(&file);
-            let folder = create_folder(&sha);
-            let compressed_file = compress(&file);
+            let header = get_header(&file);
+            let mut content = header.into_bytes();
+            content.extend(file);
+            let sha = get_sha(&content);
             print_sha(&sha);
+            let folder = create_folder(&sha);
+            let compressed_file = compress(&content);
             let file_sha = get_file_sha(&sha);
-            save_file(&compressed_file, &folder, &file_sha);
-            
+            save_file(&compressed_file, folder, &file_sha);
         }
         _ => eprintln!("unknown option"),
     }
@@ -37,8 +39,8 @@ fn compress(file: &[u8]) -> Vec<u8> {
     encoder.finish().unwrap()
 }
 
-fn create_folder(sha: &str) -> String {
-    let path = format!(".git/objects/{}", &sha[..2]);
+fn create_folder(sha: &str) -> PathBuf {
+    let path = Path::new(".git").join("objects").join(&sha[0..2]);
     DirBuilder::new().recursive(true).create(&path).unwrap();
     path
 }
@@ -47,8 +49,18 @@ fn print_sha(sha: &str) {
     println!("{sha}");
 }
 
-fn save_file(file: &[u8], folder_path: &str, file_sha: &str) {
-    let path = format!("{}/{}", folder_path, file_sha);
+fn get_header(content: &[u8]) -> String {
+    let object_type = "blob";
+    let size = content.len();
+    format!("{} {}\0", object_type, size)
+}
+
+fn save_file(file: &[u8], mut path: PathBuf, file_sha: &str) {
+    path.push(file_sha);
+    let path = Path::new(&path);
+    if path.exists() {
+        return;
+    }
     std::fs::write(path, file).unwrap();
 }
 
@@ -65,7 +77,14 @@ mod tests {
         let sha = "2qedhfgkjdshfglkjerhgejfge65";
         let expected_file_sha = "edhfgkjdshfglkjerhgejfge65";
         let result = get_file_sha(sha);
-
         assert_eq!(result, expected_file_sha);
+    }
+
+    #[test]
+    fn should_create_blob_header() {
+        let content = "what is up, doc?";
+        let expected_result = "blob 16\0";
+        let result = get_header(content.as_bytes());
+        assert_eq!(result, expected_result);
     }
 }
