@@ -3,7 +3,7 @@ use flate2::write::ZlibEncoder;
 use hex::ToHex;
 use sha1::{self, Digest};
 use std::{
-    fs::{DirBuilder},
+    fs::DirBuilder,
     io::Write,
     path::{Path, PathBuf},
 };
@@ -52,7 +52,7 @@ fn print_sha(sha: &str) {
 fn get_header(content: &[u8]) -> String {
     let object_type = "blob";
     let size = content.len();
-    format!("{} {}\0", object_type, size)
+    format!("{} {}\0 ", object_type, size)
 }
 
 fn save_file(file: &[u8], mut path: PathBuf, file_sha: &str) {
